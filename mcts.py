@@ -5,7 +5,6 @@ from board import Board
 
 '''
 蒙特卡洛树搜索算法 - 纯MCTS实现版本
-优化版本: 提高搜索效率并增强可读性
 '''
 
 class Node(object):
@@ -54,7 +53,7 @@ class Mcts(object):
         
         参数:
             node: 要评估的节点
-            c: 探索常数 (1/sqrt(2) 通常是个好选择)
+            c: 探索常数
         '''
         # UCB1公式: Q(v)/N(v) + c*sqrt(2*ln(N(p))/N(v))
         # Q(v) = 节点总得分

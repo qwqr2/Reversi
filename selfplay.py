@@ -8,10 +8,6 @@ policy_value_net = PolicyValueNet(model_file='./current_policy.model')
 from multiprocessing import Pool, Queue, Process
 from threading import Thread
 
-'''
-请分开测试！用来测试selfplay如何速度最快，后来我们都会采用多进程队列去加速！
-'''
-
 
 
 black_player = AIPlayerplus(policy_value_net.policy_value_fn, 100)

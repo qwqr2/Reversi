@@ -126,7 +126,7 @@ class ChessAIPlayer(): # Traditional Algorithm AI
             action = random.choice(valid_locations) # Fallback
             
         return action
-class AIPlayer():    # 恢复纯MCTS玩家类
+class AIPlayer():
     '''
     纯MCTS AI玩家（用于训练评估）
     '''

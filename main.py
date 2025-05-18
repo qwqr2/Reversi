@@ -1,8 +1,7 @@
-from player import HumanPlayer, AIPlayerplus, ChessAIPlayer # Updated imports
+from player import HumanPlayer, AIPlayerplus, ChessAIPlayer
 from game import Game
 from policy_value_net import PolicyValueNet
 
-# Global cache for PolicyValueNet to avoid reloading the same model
 policy_net_cache = {}
 
 def get_policy_value_net(model_file_path):
