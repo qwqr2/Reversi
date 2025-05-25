@@ -17,14 +17,16 @@ class Net(nn.Module):
     '''
     def __init__(self):
         super().__init__()         
-        # 公共层
+        # 公共层 - 特征提取
         self.conv1 = nn.Conv2d(2, 32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-        # 行动策略层
+        
+        # 策略头 - 输出落子概率
         self.act_conv1 = nn.Conv2d(128, 2, kernel_size=1)
         self.act_fc1 = nn.Linear(2*8*8, 8*8)
-        # 价值层
+        
+        # 价值头 - 输出局面评估
         self.val_conv1 = nn.Conv2d(128, 2, kernel_size=1)
         self.val_fc1 = nn.Linear(2*8*8, 64)
         self.val_fc2 = nn.Linear(64, 1)
@@ -51,13 +53,20 @@ class PolicyValueNet():
     '''
     def __init__(self, model_file=None, use_gpu=False):
         self.use_gpu = use_gpu
-        self.l2_const = 1e-4   # l2正则化系数
-        # 策略网络模型
+        self.l2_const = 1e-4   # L2正则化系数
+        
+        # 初始化网络
         if self.use_gpu:
             self.policy_value_net = Net().cuda()
         else:
             self.policy_value_net = Net()
-        self.optimizer = optim.Adam(self.policy_value_net.parameters(), weight_decay=self.l2_const)
+            
+        # 优化器设置
+        self.optimizer = optim.Adam(
+            self.policy_value_net.parameters(), 
+            weight_decay=self.l2_const
+        )
+        
         if model_file:
             net_params = torch.load(model_file)
             self.policy_value_net.load_state_dict(net_params)
@@ -80,7 +89,7 @@ class PolicyValueNet():
     def policy_value_fn(self, board):
         '''
         input:棋盘
-        output：需要值
+        output:需要值
         实战用
         '''
         current_state = np.expand_dims(board.current_state(), axis=0)
