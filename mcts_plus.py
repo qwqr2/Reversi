@@ -68,6 +68,10 @@ class Mcts_plus(object):
         使用PUCT公式计算节点价值
         PUCT结合了先验概率与UCB公式
         """
+        # 如果节点未被访问过，返回一个很大的值以鼓励探索
+        if node.visit == 0:
+            return float('inf')
+            
         # UCB1公式: Q(s,a) + c_puct * P(s,a) * sqrt(N(s)) / (1 + N(s,a))
         exploitation = node.score / node.visit  # 利用项
         exploration = self.c_puct * node.prob * math.sqrt(2 * node.parent.visit) / (1 + node.visit)  # 探索项
@@ -111,6 +115,10 @@ class Mcts_plus(object):
         if not unexpanded_candidates:
             return None
         
+        # 如果节点没有先验概率，先进行模拟
+        if node.nextlocation_prob is None:
+            self.simulation(node)
+        
         # 选择具有最高先验概率的候选位置
         max_prob = float('-inf')
         best_candidate = None
@@ -134,6 +142,10 @@ class Mcts_plus(object):
         new_node.prob = max_prob
         new_node.parent = node
         new_node.candidate = best_candidate
+        new_node.visit = 1  # 初始化访问次数为1
+        new_node.board = copy.deepcopy(node.board)  # 复制棋盘状态
+        new_node.board.reversi_pieces(best_candidate)  # 执行落子
+        new_node.next_locations = new_node.board.locations()  # 更新可行位置
         
         # 更新父节点
         node.childnodes.append(best_candidate)
@@ -195,108 +207,45 @@ class Mcts_plus(object):
         if not root.next_locations:
             return None, np.zeros((8, 8))
         
-        # 第一次扩展
-        expand_node = self.expand(root)
-        
-        # 创建并更新扩展节点的棋盘状态
-        board_copy = copy.deepcopy(self.board)
-        board_copy.reversi_pieces(expand_node.candidate)
-        expand_node.board = board_copy
-        expand_node.visit = 1
-        
-        # 设置正确的棋盘颜色并模拟
-        expand_node.board.color = 'O' if expand_node.color == 'X' else 'X'
-        self.simulation(expand_node)
-        
-        # 更新扩展节点的可行位置
-        expand_node.next_locations = expand_node.board.locations()
-        expand_node.board.pieces_index()
-        
-        # 检查是否游戏结束
-        if (expand_node.board.black_count + expand_node.board.white_count) == 64:
-            if expand_node.color == 'X':
-                expand_node.score = expand_node.board.win()
-            else:
-                expand_node.score = -expand_node.board.win()
-                
-        # 反向传播
-        self.back_update(expand_node)
-        
-        # 主搜索循环
-        for i in range(self.r):
-            # 如果没有可行动作，跳出循环
-            if not expand_node.next_locations:
-                break
-                
-            # 选择-扩展-模拟-反向传播
-            selection_node = self.selection(root)
-            expand_node = self.expand(selection_node)
+        # MCTS主循环
+        for _ in range(self.r):
+            # 选择阶段
+            node = self.selection(root)
             
-            if expand_node is None:
+            # 如果游戏结束，直接评估
+            if node.board.is_game_over():
+                node.score = node.board.win()
+                self.back_update(node)
                 continue
                 
-            # 创建并更新扩展节点的棋盘状态
-            board_copy = copy.deepcopy(selection_node.board)
-            board_copy.reversi_pieces(expand_node.candidate)
-            expand_node.board = board_copy
-            expand_node.visit = 1
-            
-            # 设置正确的棋盘颜色并模拟
-            expand_node.board.color = 'O' if expand_node.color == 'X' else 'X'
-            self.simulation(expand_node)
-            
-            # 更新扩展节点的可行位置
-            expand_node.next_locations = expand_node.board.locations()
-            expand_node.board.pieces_index()
-            
-            # 检查是否游戏结束
-            if (expand_node.board.black_count + expand_node.board.white_count) == 64:
-                if expand_node.color == 'X':
-                    expand_node.score = expand_node.board.win()
-                else:
-                    expand_node.score = -expand_node.board.win()
+            # 扩展阶段
+            if node.status == 0:
+                expand_node = self.expand(node)
+                if expand_node:
+                    node = expand_node
                     
+            # 模拟阶段
+            self.simulation(node)
+            
             # 反向传播
-            self.back_update(expand_node)
-        
-        # 准备返回结果
-        action = None
-        max_visit = 0
-        mcts_visits = []
-        mcts_prob = np.zeros((8, 8))
-        
-        # 标准对战模式 - 选择访问次数最多的动作
-        if self.is_selfplay == 0:
-            for child in root.child:
-                if child.visit > max_visit:
-                    max_visit = child.visit
-                    action = child.candidate
-                    
-                a, b = child.candidate
-                mcts_prob[a][b] = child.visit
-                
-        # 自我对弈模式 - 使用Dirichlet噪声引入随机性
-        else: 
-            for child in root.child:
-                a, b = child.candidate
-                mcts_prob[a][b] = child.visit
-                mcts_visits.append(child.visit)
-                
-            mcts_visits = np.array(mcts_visits)
+            self.back_update(node)
             
-            # 为探索添加Dirichlet噪声
-            visits_with_noise = 0.75 * mcts_visits + 0.25 * np.random.dirichlet(
-                0.3 * np.ones(len(mcts_visits)))
-                
-            # 按概率选择动作
-            action_node = random.choices(
-                root.child, 
-                weights=visits_with_noise,
-                k=1)[0]
-                
-            action = action_node.candidate
-            
-        # 将访问次数转换为概率分布
-        mcts_prob = softmax(mcts_prob.flatten()).reshape(8, 8)
+        # 选择访问次数最多的动作
+        best_action = None
+        best_visit = -1
         
-        return action, mcts_prob
+        for child in root.child:
+            if child.visit > best_visit:
+                best_visit = child.visit
+                best_action = child.candidate
+                
+        # 获取动作概率分布
+        action_probs = np.zeros((8, 8))
+        for child in root.child:
+            action_probs[child.candidate[0]][child.candidate[1]] = child.visit
+            
+        # 归一化概率分布
+        if np.sum(action_probs) > 0:
+            action_probs = action_probs / np.sum(action_probs)
+            
+        return best_action, action_probs

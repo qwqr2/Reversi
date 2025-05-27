@@ -1,12 +1,17 @@
 import random
 import numpy as np
 from collections import defaultdict, deque
+import torch
 from game import Game
 from player import AIPlayerplus, AIPlayer
 from policy_value_net import PolicyValueNet  # Pytorch
 
 class TrainPipeline():
     def __init__(self, init_model=None):
+        # 检查GPU是否可用
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"使用设备: {self.device}")
+        
         # 训练参数
         self.learn_rate = 1e-4
         self.lr_multiplier = 1  # 自适应调节学习率
@@ -23,10 +28,10 @@ class TrainPipeline():
         self.AIPlayer_num = 100      # 纯mcts玩家搜索次数
         if init_model:
             # 从初始策略价值网络开始学习
-            self.policy_value_net = PolicyValueNet(model_file=init_model)
+            self.policy_value_net = PolicyValueNet(model_file=init_model, use_gpu=(self.device.type == "cuda"))
         else:
             # 从一个新的策略网络开始学习
-            self.policy_value_net = PolicyValueNet()
+            self.policy_value_net = PolicyValueNet(use_gpu=(self.device.type == "cuda"))
             
         self.AIPlayerplus = AIPlayerplus(self.policy_value_net)
 

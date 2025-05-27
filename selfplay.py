@@ -1,165 +1,140 @@
-from player import AIPlayer, AIPlayerplus
+from player import AIPlayer, AIPlayerplus, ChessAIPlayer
 from game import Game
 from board import Board
 import time
 from policy_value_net import PolicyValueNet
-policy_value_net = PolicyValueNet(model_file='./current_policy.model')
-
 from multiprocessing import Pool, Queue, Process
-from threading import Thread
+import numpy as np
+import torch
+import os
 
-
-
-black_player = AIPlayerplus(policy_value_net.policy_value_fn, 100)
-# black_player = AIPlayerplus(100)
-white_player = AIPlayer(100)
-
-n = 10   # 对战次数
-
-
-# # 普通运行模式
-
-# black_win = 0   # 黑棋获胜数
-# white_win = 0   # 白棋获胜数
-
-# start1 = time.time()
-
-# for i in range(n):
-#     game = Game(black_player, white_player)
-#     game.selfplay_run()
-#     if game.board.win() == 1:
-#         black_win += 1
-#     elif game.board.win() == -1:
-#         white_win += 1
-#     else:
-#         pass
-    
-# print('黑棋获胜：', black_win)
-# print('白棋获胜：', white_win)
-
-# end1 = time.time()
-
-# print('普通运行时间：', end1-start1)
-
-
-
-# # 多线程运行模式
-
-# black_win = 0   # 黑棋获胜数
-# white_win = 0   # 白棋获胜数
-
-# start2 = time.time()
-
-
-# for i in range(n):
-#     game = Game(black_player, white_player)
-#     t = Thread(target=game.selfplay_run())
-#     t.start()
-#     if game.board.win() == 1:
-#         black_win += 1
-#     elif game.board.win() == -1:
-#         white_win += 1
-#     else:
-#         pass
-    
- 
-    
-# print('黑棋获胜：', black_win)
-# print('白棋获胜：', white_win)
-
-# end2 = time.time()
-
-# print('多线程运行时间：', end2-start2)
-
-
-# # 多进程池
-
-# black_win = 0   # 黑棋获胜数
-# white_win = 0   # 白棋获胜数
-
-
-# if __name__ == '__main__':
-    
-#     start3 = time.time()
-    
-#     pool = Pool(2)      # 进程数
-    
-#     for i in range(n):
-#         game = Game(black_player, white_player)
-#         pool.apply_async(game.board.win())
-#         if game.game_result() == 1:
-#             black_win += 1
-#         elif game.game_result() == -1:
-#             white_win += 1
-#         else:
-#             pass
-    
+class ModelBattle:
+    def __init__(self):
+        try:
+            # 检查模型文件是否存在
+            if not os.path.exists('./current_policy.model'):
+                print("警告：未找到模型文件 './current_policy.model'")
+                print("将使用新初始化的模型")
+                self.policy_value_net = PolicyValueNet(use_gpu=torch.cuda.is_available())
+            else:
+                # 尝试加载模型
+                try:
+                    self.policy_value_net = PolicyValueNet(model_file='./current_policy.model', use_gpu=torch.cuda.is_available())
+                    print("成功加载模型")
+                except Exception as e:
+                    print(f"加载模型失败: {e}")
+                    print("将使用新初始化的模型")
+                    self.policy_value_net = PolicyValueNet(use_gpu=torch.cuda.is_available())
+            
+            self.models = {
+                '1': ('神经网络+MCTS', lambda: AIPlayerplus(self.policy_value_net.policy_value_fn, 100)),
+                '2': ('纯MCTS', lambda: AIPlayer(100)),
+                '3': ('剪枝算法', lambda: ChessAIPlayer(4))
+            }
+        except Exception as e:
+            print(f"初始化失败: {e}")
+            raise
         
-#     print('黑棋获胜：', black_win)
-#     print('白棋获胜：', white_win)
-    
-#     end3 = time.time()
-    
-#     print('多进程池运行时间：', end3-start3)
-
-
-
-# 多进程队列
-
-black_win = 0   # 黑棋获胜数
-white_win = 0   # 白棋获胜数
-
-ps_num = 5      # 进程数
-chunk_size = n//ps_num   # 每个进程分的对抗数
-n_list = range(n)   
-
-
-def chunk_gamerun(res_queue, start_index, end_index):
-    '''
-    将每个进程分配游戏入队
-    '''
-    for game_index in n_list[start_index:end_index]:
+    def select_models(self):
+        print("\n可用的AI模型：")
+        for key, (name, _) in self.models.items():
+            print(f"{key}. {name}")
         
-        game = Game(black_player, white_player)
-        game.selfplay_run()
-        res_queue.put(game.board.win())       # 实际进入队列的是游戏结果
-        
-        
+        while True:
+            try:
+                black_choice = input("\n请选择黑棋AI模型 (输入数字): ")
+                white_choice = input("请选择白棋AI模型 (输入数字): ")
+                
+                if black_choice in self.models and white_choice in self.models:
+                    return (
+                        self.models[black_choice][1](),
+                        self.models[white_choice][1](),
+                        black_choice,
+                        white_choice
+                    )
+                else:
+                    print("无效的选择，请重新输入")
+            except Exception as e:
+                print(f"选择出错: {e}")
 
-if __name__ == '__main__':       
+    def run_battle(self, n_games=10):
+        try:
+            black_player, white_player, black_choice, white_choice = self.select_models()
+            black_win = 0
+            white_win = 0
+            draw = 0
+            black_times = []
+            white_times = []
+            
+            print(f"\n开始{self.models[black_choice][0]} vs {self.models[white_choice][0]}的对战...")
+            
+            for i in range(n_games):
+                print(f"\n第{i+1}局开始...")
+                game = Game(black_player, white_player)
+                
+                # 记录决策时间
+                start_time = time.time()
+                game.selfplay_run()
+                end_time = time.time()
+                
+                # 统计胜负
+                result = game.board.win()
+                if result == 1:
+                    black_win += 1
+                    print(f"黑棋({self.models[black_choice][0]})获胜")
+                elif result == -1:
+                    white_win += 1
+                    print(f"白棋({self.models[white_choice][0]})获胜")
+                else:
+                    draw += 1
+                    print("平局")
+                
+                # 记录决策时间
+                game_time = end_time - start_time
+                if i % 2 == 0:  # 黑棋先手
+                    black_times.append(game_time)
+                else:
+                    white_times.append(game_time)
+                
+                # 显示当前进度
+                print(f"当前进度: {i+1}/{n_games}")
+                print(f"黑棋胜率: {black_win/(i+1)*100:.1f}%")
+                print(f"白棋胜率: {white_win/(i+1)*100:.1f}%")
+                print(f"平局率: {draw/(i+1)*100:.1f}%")
+            
+            # 输出最终统计结果
+            print("\n对战统计结果：")
+            print(f"总场次: {n_games}")
+            print(f"黑棋({self.models[black_choice][0]})胜率: {black_win/n_games*100:.1f}%")
+            print(f"白棋({self.models[white_choice][0]})胜率: {white_win/n_games*100:.1f}%")
+            print(f"平局率: {draw/n_games*100:.1f}%")
+            if black_times:
+                print(f"黑棋平均决策时间: {np.mean(black_times):.2f}秒")
+            if white_times:
+                print(f"白棋平均决策时间: {np.mean(white_times):.2f}秒")
+                
+        except Exception as e:
+            print(f"对战过程中发生错误: {e}")
+            import traceback
+            traceback.print_exc()
 
-
-    res_queue = Queue()     # 进程队列
-    task_list = []      # 进程列表
-    
-    
-    for i in range(ps_num):    # 确定分的位置
-        s_index = i * chunk_size
-        if i == ps_num - 1:
-            e_index = n
-        else:
-            e_index = s_index + chunk_size                  
-        p_task = Process(target=chunk_gamerun, args=(res_queue,s_index,e_index))  # 每个进程包含数个相同数目任务
-        task_list.append(p_task)
-        p_task.start()
-
-    get_queue_num = 0
-    
-    while True:          # 获取队列信息
-        res_game = res_queue.get()
-        if res_game == 1:
-            black_win += 1
-        elif res_game == -1:
-            white_win +=1
-        get_queue_num += 1
-        if get_queue_num == n:
-            break
-    
-    time.sleep(5)    # 必要！ 因为第一个进程可能还未入队导致子程序在主程序后运行！
-    
-    for task in task_list:
-        task.join()
+def main():
+    try:
+        battle = ModelBattle()
+        while True:
+            try:
+                n_games = int(input("\n请输入对战局数: "))
+                if n_games > 0:
+                    break
+                print("请输入大于0的数字")
+            except ValueError:
+                print("请输入有效的数字")
         
-        
-    print('黑棋获胜：', black_win)
-    print('白棋获胜：', white_win)
+        battle.run_battle(n_games)
+    except Exception as e:
+        print(f"程序运行出错: {e}")
+        import traceback
+        traceback.print_exc()
+
+if __name__ == '__main__':
+    main()

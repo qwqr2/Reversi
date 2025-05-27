@@ -11,6 +11,7 @@ class Board(object):
         self.board[3][3] = 'O' # O为白棋
         self.board[4][4] = 'O' # O为白棋
         self.color = 'X'
+        self.availables = []  # 添加availables属性
         
     def display(self):
         '''
@@ -152,7 +153,8 @@ class Board(object):
                                         break
                         else:
                             continue
-            return list({}.fromkeys(self.legal_loc1).keys())
+            self.availables = list({}.fromkeys(self.legal_loc1).keys())  # 更新availables
+            return self.availables
         else:
             for i in range(8):
                 for j in range(8):
@@ -242,7 +244,8 @@ class Board(object):
                                         break
                         else:
                             continue
-            return list({}.fromkeys(self.legal_loc1).keys())
+            self.availables = list({}.fromkeys(self.legal_loc1).keys())  # 更新availables
+            return self.availables
         
     
     def reversi_pieces(self, action):
@@ -308,15 +311,39 @@ class Board(object):
                         for j in range(i[2]+1):
                             self.board[x+j][y+j] = 'O' 
                                    
+    def is_game_over(self):
+        '''
+        判断游戏是否结束
+        当双方都没有合法落子位置时游戏结束
+        '''
+        # 保存当前颜色
+        current_color = self.color
+        
+        # 检查黑棋是否有合法落子位置
+        self.color = 'X'
+        black_moves = self.locations()
+        
+        # 检查白棋是否有合法落子位置
+        self.color = 'O'
+        white_moves = self.locations()
+        
+        # 恢复原来的颜色
+        self.color = current_color
+        
+        # 如果双方都没有合法落子位置，游戏结束
+        return len(black_moves) == 0 and len(white_moves) == 0
+
     def win(self):
         '''
-        找寻赢家(返回值)
+        判断胜负
+        返回1表示黑棋胜，-1表示白棋胜，0表示平局
         '''
-        if self.black_count > self.white_count:     #黑棋赢
+        self.pieces_index()
+        if self.black_count > self.white_count:
             return 1
-        elif self.black_count < self.white_count:       #白棋赢
+        elif self.black_count < self.white_count:
             return -1
-        else:       #平局
+        else:
             return 0
         
     def current_state(self):
