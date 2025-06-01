@@ -17,7 +17,7 @@ class TrainPipeline():
         self.lr_multiplier = 1  # 自适应调节学习率
         self.batch_size = 512  # mini-batch size
         self.epochs = 5  # 每次更新训练次数
-        self.check_freq = 50 # 每50次就与纯mcts进行对战查看情况
+        self.check_freq = 20 # 每20次就与纯mcts进行对战查看情况
         self.buffer_size = 10000
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.game_batch_num = 2000
