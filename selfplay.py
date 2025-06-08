@@ -27,9 +27,9 @@ class ModelBattle:
                     self.policy_value_net = PolicyValueNet(use_gpu=torch.cuda.is_available())
             
             self.models = {
-                '1': ('神经网络+MCTS', lambda: AIPlayerplus(self.policy_value_net.policy_value_fn, 100)),
-                '2': ('纯MCTS', lambda: AIPlayer(100)),
-                '3': ('剪枝算法', lambda: ChessAIPlayer(4))
+                '1': ('剪枝算法', lambda: AIPlayerplus(self.policy_value_net.policy_value_fn, 100)),
+                '2': ('MCTS', lambda: AIPlayer(100)),
+                '3': ('神经网络+MCTS', lambda: ChessAIPlayer(4))
             }
         except Exception as e:
             print(f"初始化失败: {e}")
@@ -63,8 +63,8 @@ class ModelBattle:
             black_win = 0
             white_win = 0
             draw = 0
-            black_times = []
-            white_times = []
+            black_move_times = []  # 记录黑棋每一步的决策时间
+            white_move_times = []  # 记录白棋每一步的决策时间
             
             print(f"\n开始{self.models[black_choice][0]} vs {self.models[white_choice][0]}的对战...")
             
@@ -72,10 +72,12 @@ class ModelBattle:
                 print(f"\n第{i+1}局开始...")
                 game = Game(black_player, white_player)
                 
-                # 记录决策时间
-                start_time = time.time()
-                game.selfplay_run()
-                end_time = time.time()
+                # 使用修改后的selfplay_run方法，记录每一步的决策时间
+                black_times, white_times = game.selfplay_run()
+                
+                # 添加到总记录中
+                black_move_times.extend(black_times)
+                white_move_times.extend(white_times)
                 
                 # 统计胜负
                 result = game.board.win()
@@ -89,13 +91,6 @@ class ModelBattle:
                     draw += 1
                     print("平局")
                 
-                # 记录决策时间
-                game_time = end_time - start_time
-                if i % 2 == 0:  # 黑棋先手
-                    black_times.append(game_time)
-                else:
-                    white_times.append(game_time)
-                
                 # 显示当前进度
                 print(f"当前进度: {i+1}/{n_games}")
                 print(f"黑棋胜率: {black_win/(i+1)*100:.1f}%")
@@ -108,10 +103,10 @@ class ModelBattle:
             print(f"黑棋({self.models[black_choice][0]})胜率: {black_win/n_games*100:.1f}%")
             print(f"白棋({self.models[white_choice][0]})胜率: {white_win/n_games*100:.1f}%")
             print(f"平局率: {draw/n_games*100:.1f}%")
-            if black_times:
-                print(f"黑棋平均决策时间: {np.mean(black_times):.2f}秒")
-            if white_times:
-                print(f"白棋平均决策时间: {np.mean(white_times):.2f}秒")
+            if black_move_times:
+                print(f"黑棋平均每步决策时间: {np.mean(black_move_times):.2f}秒")
+            if white_move_times:
+                print(f"白棋平均每步决策时间: {np.mean(white_move_times):.2f}秒")
                 
         except Exception as e:
             print(f"对战过程中发生错误: {e}")

@@ -12,6 +12,7 @@ class Game(object):
         self.white_player = white_player
         self.white_player.color = 'O'
         self.current_player = self.black_player
+        self.board.current_player = 'X'  # 确保board.current_player与当前玩家一致
         
         
     
@@ -22,9 +23,11 @@ class Game(object):
         if self.current_player == self.black_player:
             self.current_player = self.white_player
             self.board.color = 'O'
+            self.board.current_player = 'O'  # 同步更新board.current_player
         else:
             self.current_player = self.black_player
             self.board.color = 'X'
+            self.board.current_player = 'X'  # 同步更新board.current_player
         
     
     def run(self):
@@ -42,8 +45,9 @@ class Game(object):
 
         self.board.pieces_index()  
         
-        
-        self.board.reversi_pieces(self.current_player.move(self.board))
+        action = self.current_player.move(self.board)
+        if action is not None:  # 确保有有效动作
+            self.board.reversi_pieces(action)
         
         end = time.time()
         
@@ -74,7 +78,9 @@ class Game(object):
                 
                 self.board.pieces_index()  
                 
-                self.board.reversi_pieces(self.current_player.move(self.board))
+                action = self.current_player.move(self.board)
+                if action is not None:  # 确保有有效动作
+                    self.board.reversi_pieces(action)
                 
 
                 end = time.time()
@@ -101,10 +107,26 @@ class Game(object):
         '''
         自我对抗时通过减少print来加速对抗运行
         用于检验胜率
+        同时记录每一步的决策时间
         '''
+        # 初始化记录每一步决策时间的列表
+        black_move_times = []
+        white_move_times = []
+        
+        # 第一步：黑棋
         self.board.locations()
-        self.board.reversi_pieces(self.current_player.move(self.board))
+        start_time = time.time()
+        action = self.current_player.move(self.board)
+        end_time = time.time()
+        
+        # 记录黑棋决策时间
+        black_move_times.append(end_time - start_time)
+        
+        if action is not None:  # 确保有有效动作
+            self.board.reversi_pieces(action)
         self.switch_player()
+        
+        # 后续步骤
         switch = 0
         while switch != 2:
             if len(self.board.locations()) == 0:
@@ -112,9 +134,25 @@ class Game(object):
             else:
                 switch = 0
                 self.board.locations()
-                self.board.reversi_pieces(self.current_player.move(self.board))
+                
+                # 记录决策时间
+                start_time = time.time()
+                action = self.current_player.move(self.board)
+                end_time = time.time()
+                
+                # 根据当前玩家记录决策时间
+                if self.current_player == self.black_player:
+                    black_move_times.append(end_time - start_time)
+                else:
+                    white_move_times.append(end_time - start_time)
+                
+                if action is not None:  # 确保有有效动作
+                    self.board.reversi_pieces(action)
             self.switch_player()
         self.board.pieces_index()
+        
+        # 返回黑白棋的决策时间列表
+        return black_move_times, white_move_times
 
     
     def selfplay_run_plus(self):
@@ -132,7 +170,10 @@ class Game(object):
         self.playdata_state.append(self.board.current_state())
         self.playdata_prob.append(action_and_mctsprob[1])
         self.playdata_who.append(1)
-        self.board.reversi_pieces(action_and_mctsprob[0])
+        
+        if action_and_mctsprob[0] is not None:  # 确保有有效动作
+            self.board.reversi_pieces(action_and_mctsprob[0])
+            
         self.board.pieces_index()                
         self.switch_player()
         switch = 0
@@ -150,7 +191,10 @@ class Game(object):
                     self.playdata_who.append(1)
                 else:
                     self.playdata_who.append(0)
-                self.board.reversi_pieces(action_and_mctsprob[0])                
+                
+                if action_and_mctsprob[0] is not None:  # 确保有有效动作
+                    self.board.reversi_pieces(action_and_mctsprob[0])
+                                
                 self.board.pieces_index()
                 self.board.locations()
                 

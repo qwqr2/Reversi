@@ -12,6 +12,7 @@ class Board(object):
         self.board[4][4] = 'O' # O为白棋
         self.color = 'X'
         self.availables = []  # 添加availables属性
+        self.current_player = 'X'  # 添加current_player属性，与color保持一致
         
     def display(self):
         '''
@@ -54,6 +55,13 @@ class Board(object):
         '''
         print('黑棋总数：', self.black_count)
         print('白棋总数：', self.white_count)
+        
+    def pass_action(self):
+        '''
+        当没有合法走法时，返回一个表示"过"的特殊动作
+        '''
+        print(f"玩家 {self.current_player} 没有合法走法，跳过回合。")
+        return None
         
     def locations(self):
         '''

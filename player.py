@@ -91,39 +91,51 @@ class ChessAIPlayer(): # Traditional Algorithm AI
         '''
         根据当前局面返回下一步动作
         '''
+        # 确保board.current_player存在
+        current_player_symbol = board.current_player if hasattr(board, 'current_player') else 'X'
+        
+        # 获取有效位置列表
+        valid_locations = board.locations()
+        if not valid_locations: # 无可用走法
+            return board.pass_action() if hasattr(board, 'pass_action') else None
+        
+        # 创建适合chess.py AI的棋盘表示
         chess_board_representation = [[0 for _ in range(self.board_size)] for _ in range(self.board_size)]
         for r in range(self.board_size):
             for c in range(self.board_size):
-                # Ensure board.board exists and is accessible
-                if hasattr(board, 'board') and board.board[r][c] == 'X': 
-                    chess_board_representation[r][c] = -1 
-                elif hasattr(board, 'board') and board.board[r][c] == 'O': 
-                    chess_board_representation[r][c] = 1  
+                if hasattr(board, 'board'):
+                    if board.board[r][c] == 'X': 
+                        chess_board_representation[r][c] = -1  # 黑棋为-1
+                    elif board.board[r][c] == 'O': 
+                        chess_board_representation[r][c] = 1   # 白棋为1
         
-        # Ensure board.current_player exists
-        current_player_symbol = board.current_player if hasattr(board, 'current_player') else 'X' # Default if not found
+        # 设置AI引擎的颜色
         player_color_for_engine = -1 if current_player_symbol == 'X' else 1
         
+        # 初始化或更新AI引擎
         if self.ai_engine is None:
             self.ai_engine = chessAI(self.board_size, player_color_for_engine, 5) 
         else:
             if hasattr(self.ai_engine, 'color'):
-                 self.ai_engine.color = player_color_for_engine
+                self.ai_engine.color = player_color_for_engine
         
+        # 清空候选列表
         if hasattr(self.ai_engine, 'candidate_list'):
             self.ai_engine.candidate_list = [] 
         
+        # 使用AI引擎搜索最佳走法
         alpha, beta = -float('inf'), float('inf')
         
+        # 执行搜索
         action = self.ai_engine.search(player_color_for_engine, chess_board_representation, 1, alpha, beta, self.search_depth)
         
-        valid_locations = board.locations()
-        if not valid_locations: # No moves possible
-            return board.pass_action() if hasattr(board, 'pass_action') else None
-
-        if action is None or not isinstance(action, tuple) or len(action) != 2 or action not in valid_locations:
+        # 检查返回的动作是否有效
+        if action is None or not isinstance(action, tuple) or len(action) != 2:
             print(f"传统算法AI (玩家 {current_player_symbol}) 未找到有效动作或返回格式不正确 ({action})，使用随机策略。")
-            action = random.choice(valid_locations) # Fallback
+            action = random.choice(valid_locations) # 使用随机策略作为备选
+        elif action not in valid_locations:
+            print(f"传统算法AI (玩家 {current_player_symbol}) 返回的动作 {action} 不在有效位置列表中，使用随机策略。")
+            action = random.choice(valid_locations) # 使用随机策略作为备选
             
         return action
 class AIPlayer():
@@ -153,5 +165,4 @@ class AIPlayer():
             action = random.choice(valid_locations)
             
         return action
-    
     

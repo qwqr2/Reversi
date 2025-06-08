@@ -76,12 +76,16 @@ class AI(object):
                             return choice[i]
                         return a
                     alpha = max(alpha, a)
-                    
-            # 记录结果到转置表
-            self.transposition_table[board_hash] = (t-deep, a, choice[b] if deep == 1 else None)
-            if deep == 1:
-                return choice[b]
-            return a
+            
+            # 修复：确保在有合法走法时才返回最佳走法
+            if len(choice) > 0:
+                # 记录结果到转置表
+                self.transposition_table[board_hash] = (t-deep, a, choice[b] if deep == 1 else None)
+                if deep == 1:
+                    return choice[b]
+                return a
+            else:
+                return None
             
         # MIN层处理（偶数层）
         else:
@@ -106,12 +110,16 @@ class AI(object):
                             return choice[i]
                         return a
                     beta = min(beta, a)
-                    
-            # 记录结果到转置表
-            self.transposition_table[board_hash] = (t-deep, a, choice[b] if deep == 1 else None)
-            if deep == 1:
-                return choice[b]
-            return a
+            
+            # 修复：确保在有合法走法时才返回最佳走法
+            if len(choice) > 0:
+                # 记录结果到转置表
+                self.transposition_table[board_hash] = (t-deep, a, choice[b] if deep == 1 else None)
+                if deep == 1:
+                    return choice[b]
+                return a
+            else:
+                return None
 
     def _get_board_hash(self, board):
         """将棋盘转换为哈希用于转置表"""
@@ -120,7 +128,7 @@ class AI(object):
     def find_change(self, chessboard, color, choice):
         """使用方向向量优化的落子翻转函数"""
         # 创建棋盘副本
-        change = chessboard.copy()
+        change = [row[:] for row in chessboard]  # 深拷贝二维列表
         x, y = choice
         change[x][y] = color  # 在选定位置放置棋子
         
